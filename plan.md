@@ -10,7 +10,7 @@
 ## v0 — 기반 세팅 & 창업자 전용 대시보드
 목표: 결제·로그인 없이, 나 혼자 매일 보는 화면을 먼저 만든다.
 
-- [ ] Next.js + TypeScript + Tailwind + shadcn/ui 프로젝트 초기화
+- [x] Next.js + TypeScript + Tailwind + shadcn/ui 프로젝트 초기화
 - [ ] Supabase 연결 (env, 클라이언트, 기본 테이블)
 - [ ] 데이터 소스 PoC: KIS API로 종목 1개 시세 받아오기 성공
 - [ ] DB 스키마 초안: sectors, tickers, money_flow, insights
