@@ -4,6 +4,8 @@ import NewsSummary from "@/components/dashboard/NewsSummary";
 import SupplyDemand from "@/components/dashboard/SupplyDemand";
 import FearGreed from "@/components/dashboard/FearGreed";
 import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
+import WatchlistPanel from "@/components/dashboard/WatchlistPanel";
+import FiftyTwoWeek from "@/components/dashboard/FiftyTwoWeek";
 
 export default function SummaryPage() {
   const now = new Date().toLocaleDateString("ko-KR", {
@@ -15,6 +17,9 @@ export default function SummaryPage() {
       <p className="mb-6 text-sm text-muted-foreground">{now} 기준 · 지연 데이터</p>
 
       <div className="flex flex-col gap-10">
+        {/* 관심종목 (비어있으면 숨김) */}
+        <WatchlistPanel />
+
         {/* 시장 지수 */}
         <MarketSummary />
 
@@ -31,6 +36,9 @@ export default function SummaryPage() {
             </div>
           </div>
         </section>
+
+        {/* 52주 신고가/신저가 */}
+        <FiftyTwoWeek />
 
         {/* 섹터 동향 */}
         <HotSectorGrid />

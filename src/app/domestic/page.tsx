@@ -1,5 +1,6 @@
 import { marketIndices, domesticTopStocks } from "@/lib/mock-data";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { StarButton } from "@/components/dashboard/WatchlistPanel";
 
 const marketBreadth = { up: 521, flat: 89, down: 388, total: 998 };
 
@@ -76,8 +77,13 @@ export default function DomesticPage() {
                       <tr key={stock.ticker} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                         <td className="px-4 py-3 text-muted-foreground tabular-nums">{stock.rank}</td>
                         <td className="px-4 py-3">
-                          <p className="font-medium">{stock.name}</p>
-                          <p className="text-xs text-muted-foreground">{stock.ticker}</p>
+                          <div className="flex items-center gap-1">
+                            <div>
+                              <p className="font-medium">{stock.name}</p>
+                              <p className="text-xs text-muted-foreground">{stock.ticker}</p>
+                            </div>
+                            <StarButton ticker={stock.name} />
+                          </div>
                         </td>
                         <td className="hidden px-4 py-3 text-right tabular-nums font-medium sm:table-cell">
                           {stock.price.toLocaleString("ko-KR")}

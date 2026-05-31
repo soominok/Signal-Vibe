@@ -15,6 +15,8 @@ export interface SectorKeyword {
   count: number;
 }
 
+export type Sentiment = "positive" | "negative" | "neutral";
+
 export interface NewsArticle {
   id: string;
   title: string;
@@ -22,6 +24,8 @@ export interface NewsArticle {
   publishedAt: string;
   summary: string;
   keywords: string[];
+  sentiment?: Sentiment;
+  sentimentScore?: number; // 0-100 (높을수록 긍정)
 }
 
 export interface ValueChainStage {
@@ -269,6 +273,7 @@ export const topNews: NewsArticle[] = [
     publishedAt: "2026-05-31 07:00",
     summary: "제롬 파월 연준 의장이 연내 금리 인하 신중론을 재확인하면서 글로벌 증시에 영향을 미치고 있다.",
     keywords: ["연준", "금리"],
+    sentiment: "negative", sentimentScore: 32,
   },
   {
     id: "top-2",
@@ -277,6 +282,7 @@ export const topNews: NewsArticle[] = [
     publishedAt: "2026-05-31 09:05",
     summary: "외국인 투자자가 코스피에서 5거래일 연속 순매수를 기록했다. 반도체와 방산 업종이 주요 매수 대상이다.",
     keywords: ["외국인 순매수", "반도체", "방산"],
+    sentiment: "positive", sentimentScore: 81,
   },
   {
     id: "top-3",
@@ -285,6 +291,7 @@ export const topNews: NewsArticle[] = [
     publishedAt: "2026-05-31 06:30",
     summary: "엔비디아 블랙웰 GPU의 공급 차질이 해소되면서 국내 HBM 공급사들의 수혜 기대감이 다시 높아지고 있다.",
     keywords: ["엔비디아", "HBM", "AI 서버"],
+    sentiment: "positive", sentimentScore: 76,
   },
   {
     id: "top-4",
@@ -293,7 +300,35 @@ export const topNews: NewsArticle[] = [
     publishedAt: "2026-05-31 10:15",
     summary: "원·달러 환율이 1,382원대에서 안정세를 보이고 있다. 수출 호조에 따른 무역수지 흑자가 원화 강세를 지지하고 있다.",
     keywords: ["환율", "무역수지"],
+    sentiment: "neutral", sentimentScore: 53,
   },
+];
+
+// ─── 52주 신고가 / 신저가 ─────────────────────────────────────────
+
+export interface FiftyTwoWeekStock {
+  name: string;
+  ticker: string;
+  price: number;
+  changePercent: number;
+  high52w: number;
+  low52w: number;
+}
+
+export const newHighStocks: FiftyTwoWeekStock[] = [
+  { name: "한화에어로스페이스", ticker: "012450", price: 524000, changePercent:  2.88, high52w: 524000, low52w: 280000 },
+  { name: "한미반도체",         ticker: "042700", price: 138500, changePercent:  2.44, high52w: 138500, low52w:  68000 },
+  { name: "LIG넥스원",          ticker: "079550", price: 218500, changePercent:  2.10, high52w: 218500, low52w: 118000 },
+  { name: "삼성바이오로직스",   ticker: "207940", price: 912000, changePercent:  0.55, high52w: 912000, low52w: 680000 },
+  { name: "현대로템",           ticker: "064350", price:  82100, changePercent:  1.65, high52w:  82100, low52w:  38500 },
+];
+
+export const newLowStocks: FiftyTwoWeekStock[] = [
+  { name: "GS건설",        ticker: "006360", price: 17850, changePercent: -1.66, high52w: 39800, low52w: 17850 },
+  { name: "에코프로비엠",  ticker: "247540", price: 94200, changePercent: -0.85, high52w: 215000, low52w: 94200 },
+  { name: "POSCO홀딩스",   ticker: "005490", price: 298500, changePercent: -0.50, high52w: 520000, low52w: 298500 },
+  { name: "대우건설",      ticker: "047040", price:  4285, changePercent: -1.15, high52w:   8950, low52w:  4285 },
+  { name: "카카오",        ticker: "035720", price: 41350, changePercent:  1.22, high52w:  72800, low52w: 38200 },
 ];
 
 // ─── 기업 상세 ────────────────────────────────────────────────────

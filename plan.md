@@ -27,6 +27,10 @@
 - [x] 시장 심리 지수 (공포/탐욕 게이지)
 - [x] 이번 주 경제 이벤트 캘린더
 - [x] 국내·해외 전체 종목 거래대금 순위 + 코멘트
+- [x] 52주 신고가/신저가 목록
+- [x] 뉴스 감성 분석 배지 (mock → Anthropic API 연결 시 자동화)
+- [x] 관심종목 Watchlist (localStorage, 로그인 없이 사용)
+- [x] API 연결 준비: src/lib/api/ (KIS, Alpha Vantage, ECOS, NewsAPI, Anthropic)
 - [ ] 일/주/월/년 기간 토글 (섹터·지수 공통)
 - [ ] 종목 상세 페이지 (시세 차트 + 기본 재무 + 관련 뉴스)
 
