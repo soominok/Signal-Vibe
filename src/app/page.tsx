@@ -6,15 +6,28 @@ import FearGreed from "@/components/dashboard/FearGreed";
 import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import WatchlistPanel from "@/components/dashboard/WatchlistPanel";
 import FiftyTwoWeek from "@/components/dashboard/FiftyTwoWeek";
+import MacroIndicators from "@/components/dashboard/MacroIndicators";
+import { enrichNewsWithSentiment } from "@/lib/api/anthropic";
+import { getMacroSnapshot } from "@/lib/api/ecos";
+import { topNews } from "@/lib/mock-data";
 
-export default function SummaryPage() {
+// 1시간 캐시 — 매 요청마다 Anthropic·ECOS 호출 방지
+export const revalidate = 3600;
+
+export default async function SummaryPage() {
   const now = new Date().toLocaleDateString("ko-KR", {
     year: "numeric", month: "long", day: "numeric", weekday: "short",
   });
 
+  // 병렬 데이터 페치 (실패해도 mock 유지)
+  const [enrichedNews, macro] = await Promise.all([
+    enrichNewsWithSentiment(topNews),
+    getMacroSnapshot(),
+  ]);
+
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
-      <p className="mb-6 text-sm text-muted-foreground">{now} 기준 · 지연 데이터</p>
+      <p className="mb-6 text-sm text-muted-foreground">{now} 기준</p>
 
       <div className="flex flex-col gap-10">
         {/* 관심종목 (비어있으면 숨김) */}
@@ -22,6 +35,9 @@ export default function SummaryPage() {
 
         {/* 시장 지수 */}
         <MarketSummary />
+
+        {/* 거시경제 지표 (ECOS 실데이터) */}
+        <MacroIndicators data={macro} />
 
         {/* 수급 현황 + 심리 지수 + 이벤트 */}
         <section>
@@ -43,8 +59,8 @@ export default function SummaryPage() {
         {/* 섹터 동향 */}
         <HotSectorGrid />
 
-        {/* 주요 뉴스 */}
-        <NewsSummary />
+        {/* 주요 뉴스 (Anthropic 감성 분석 실데이터) */}
+        <NewsSummary articles={enrichedNews} />
       </div>
     </main>
   );

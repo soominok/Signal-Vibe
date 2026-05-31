@@ -30,7 +30,12 @@
 - [x] 52주 신고가/신저가 목록
 - [x] 뉴스 감성 분석 배지 (mock → Anthropic API 연결 시 자동화)
 - [x] 관심종목 Watchlist (localStorage, 로그인 없이 사용)
-- [x] API 연결 준비: src/lib/api/ (KIS, Alpha Vantage, ECOS, NewsAPI, Anthropic)
+- [x] API 연결 준비: src/lib/api/ (Kiwoom, Twelve Data, ECOS, NewsAPI, Anthropic)
+- [x] Anthropic 실연결: 뉴스 감성 분석 서버 사이드 (1시간 캐시)
+- [x] ECOS 실연결: 기준금리·CPI·원달러 환율 MacroIndicators 위젯
+- [x] Kiwoom API 클라이언트: 토큰발급·현재가·거래대금순위 (앱시크릿 발급 후 활성화)
+- [ ] Twelve Data 연결: 해외 지수 실데이터 (API 키 발급 후)
+- [ ] 네이버 뉴스 API 연결: 한국 주식 뉴스 실수집 (앱 등록 후)
 - [ ] 일/주/월/년 기간 토글 (섹터·지수 공통)
 - [ ] 종목 상세 페이지 (시세 차트 + 기본 재무 + 관련 뉴스)
 

@@ -1,8 +1,9 @@
 /**
  * 한국은행 ECOS API 클라이언트
- * 용도: 기준금리, GDP, CPI, 환율 등 거시경제 지표
- * 설정: .env.local에 ECOS_API_KEY 추가
- * 발급: https://ecos.bok.or.kr/ → 인증키 신청 (무료, 즉시 발급)
+ * 용도: 기준금리, CPI, 원달러 환율, M2 등 거시경제 지표
+ * 설정: ECOS_API_KEY (서버 전용)
+ * 발급: https://ecos.bok.or.kr/ → 인증키 신청 (무료, 즉시)
+ * 캐시: revalidate 3600 (1시간) — 거시지표는 자주 바뀌지 않음
  */
 
 const BASE_URL = "https://ecos.bok.or.kr/api";
@@ -11,59 +12,89 @@ function key(): string | null {
   return process.env.ECOS_API_KEY ?? null;
 }
 
-export interface EcosStatItem {
-  statCode: string;
-  statName: string;
-  itemCode: string;
-  itemName: string;
-  dataValue: number;
+export interface EcosItem {
+  time: string;       // YYYYMM
+  value: number;
   unit: string;
-  time: string; // YYYYMM or YYYYMMDD
 }
 
-/**
- * ECOS 통계 조회 범용 함수
- * @param statCode - 통계 코드 (예: "722Y001" = 기준금리)
- * @param itemCode - 항목 코드
- * @param startTime - 시작 시점 (YYYYMM)
- * @param endTime   - 종료 시점 (YYYYMM)
- */
-export async function getEcosStat(
+async function fetchStat(
   statCode: string,
   itemCode: string,
+  periodDiv: "MM" | "QQ" | "YY",
   startTime: string,
   endTime: string
-): Promise<EcosStatItem[]> {
+): Promise<EcosItem[]> {
   const apiKey = key();
   if (!apiKey) return [];
 
-  const url = `${BASE_URL}/StatisticSearch/${apiKey}/json/kr/1/100/${statCode}/MM/${startTime}/${endTime}/${itemCode}`;
-  const res = await fetch(url, { next: { revalidate: 3600 } }); // 1시간 캐시
-  if (!res.ok) return [];
+  const url = `${BASE_URL}/StatisticSearch/${apiKey}/json/kr/1/100/${statCode}/${periodDiv}/${startTime}/${endTime}/${itemCode}`;
+  try {
+    const res = await fetch(url, { next: { revalidate: 3600 } });
+    if (!res.ok) return [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = (await res.json()) as { StatisticSearch?: { row: any[] } };
-  const rows = data.StatisticSearch?.row ?? [];
-
-  return rows.map((r) => ({
-    statCode,
-    statName:  r.STAT_NAME as string,
-    itemCode:  r.ITEM_CODE1 as string,
-    itemName:  r.ITEM_NAME1 as string,
-    dataValue: Number(r.DATA_VALUE),
-    unit:      r.UNIT_NAME as string,
-    time:      r.TIME as string,
-  }));
+    const data = (await res.json()) as {
+      StatisticSearch?: { row: Record<string, string>[] };
+    };
+    return (data.StatisticSearch?.row ?? []).map((r) => ({
+      time:  r.TIME,
+      value: Number(r.DATA_VALUE),
+      unit:  r.UNIT_NAME,
+    }));
+  } catch {
+    return [];
+  }
 }
 
-/**
- * 기준금리 최근 12개월 조회 (통계코드 722Y001)
- */
-export async function getBaseRate(): Promise<EcosStatItem[]> {
+function monthRange(monthsBack: number): { start: string; end: string } {
   const now = new Date();
   const end = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const startDate = new Date(now);
-  startDate.setFullYear(startDate.getFullYear() - 1);
-  const start = `${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, "0")}`;
-  return getEcosStat("722Y001", "0101000", start, end);
+  const d = new Date(now);
+  d.setMonth(d.getMonth() - monthsBack);
+  const start = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return { start, end };
+}
+
+// ─── 공개 함수 ────────────────────────────────────────────────────
+
+/** 기준금리 (통계코드 722Y001, 항목 0101000) — 최근 13개월 */
+export async function getBaseRate(): Promise<EcosItem[]> {
+  const { start, end } = monthRange(12);
+  return fetchStat("722Y001", "0101000", "MM", start, end);
+}
+
+/** 소비자물가지수 CPI (통계코드 901Y009, 항목 0) — 최근 13개월 */
+export async function getCpi(): Promise<EcosItem[]> {
+  const { start, end } = monthRange(12);
+  return fetchStat("901Y009", "0", "MM", start, end);
+}
+
+/** 원달러 환율 (통계코드 731Y004, 항목 0000003) — 최근 13개월 */
+export async function getUsdKrwRate(): Promise<EcosItem[]> {
+  const { start, end } = monthRange(12);
+  return fetchStat("731Y004", "0000003", "MM", start, end);
+}
+
+export interface MacroSnapshot {
+  baseRate:    { value: number; unit: string; time: string } | null;
+  cpi:         { value: number; unit: string; time: string } | null;
+  usdKrw:      { value: number; unit: string; time: string } | null;
+}
+
+/** 최신 거시지표 한 줄씩 반환 */
+export async function getMacroSnapshot(): Promise<MacroSnapshot> {
+  const [baseRates, cpis, usdKrws] = await Promise.all([
+    getBaseRate(),
+    getCpi(),
+    getUsdKrwRate(),
+  ]);
+
+  const last = <T extends EcosItem>(arr: T[]) =>
+    arr.length > 0 ? arr[arr.length - 1] : null;
+
+  return {
+    baseRate: last(baseRates),
+    cpi:      last(cpis),
+    usdKrw:   last(usdKrws),
+  };
 }

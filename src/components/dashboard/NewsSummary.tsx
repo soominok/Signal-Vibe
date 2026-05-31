@@ -1,4 +1,4 @@
-import { topNews, type Sentiment } from "@/lib/mock-data";
+import { type NewsArticle, type Sentiment } from "@/lib/mock-data";
 import { ExternalLink, Sparkles } from "lucide-react";
 
 const sentimentConfig: Record<Sentiment, { label: string; className: string }> = {
@@ -7,7 +7,7 @@ const sentimentConfig: Record<Sentiment, { label: string; className: string }> =
   neutral:  { label: "중립",  className: "bg-muted text-muted-foreground" },
 };
 
-export default function NewsSummary() {
+export default function NewsSummary({ articles }: { articles: NewsArticle[] }) {
   return (
     <section>
       <div className="mb-3 flex items-center gap-2">
@@ -17,7 +17,7 @@ export default function NewsSummary() {
         </span>
       </div>
       <div className="flex flex-col gap-3">
-        {topNews.map((article, i) => {
+        {articles.map((article, i) => {
           const sc = article.sentiment ? sentimentConfig[article.sentiment] : null;
           return (
             <div
