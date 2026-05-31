@@ -1,10 +1,8 @@
 /**
- * 키움 API 테스트 — 확인된 엔드포인트
- * GET /api/test-kiwoom?q=rank32  — ka10032 거래대금상위 (rkinfo)
- * GET /api/test-kiwoom?q=rank27  — ka10027 등락률상위
- * GET /api/test-kiwoom?q=rank23  — ka10023 거래량급증
- * GET /api/test-kiwoom?q=rank35  — ka10035 외인연속순매매상위
- * GET /api/test-kiwoom?q=stkinfo — ka10001 주식기본정보 (확인됨)
+ * 최종 TR 테스트
+ * GET /api/test-kiwoom?q=ka90009
+ * GET /api/test-kiwoom?q=ka10027
+ * GET /api/test-kiwoom?q=all_confirmed  — 확인된 TR 전체 요약
  */
 
 const BASE       = "https://api.kiwoom.com";
@@ -22,8 +20,8 @@ async function getToken(): Promise<string | null> {
   return ((await res.json()) as { token?: string }).token ?? null;
 }
 
-async function kPost(token: string, endpoint: string, apiId: string, body: Record<string, string>) {
-  const res = await fetch(BASE + endpoint, {
+async function kPost(token: string, apiId: string, body: Record<string, string>) {
+  const res = await fetch(`${BASE}/api/dostk/rkinfo`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json;charset=UTF-8",
@@ -34,61 +32,48 @@ async function kPost(token: string, endpoint: string, apiId: string, body: Recor
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(8000),
   });
-  const data = await res.json();
-  return { apiId, status: res.status, data };
+  const data = await res.json() as Record<string, unknown>;
+  const arrayKeys = Object.keys(data).filter((k) => Array.isArray(data[k]));
+  const first = arrayKeys.length > 0 ? (data[arrayKeys[0]] as Record<string,unknown>[])[0] : null;
+  return {
+    apiId,
+    code: data.return_code, msg: data.return_msg,
+    arrayKeys, count: arrayKeys.length > 0 ? (data[arrayKeys[0]] as unknown[]).length : 0,
+    sampleKeys: first ? Object.keys(first) : [],
+    sample: first,
+  };
 }
 
+const base = { mrkt_tp: "001", stex_tp: "3", mang_stk_incls: "1", stk_cnd: "0", crd_cnd: "0", trde_qty_cnd: "0" };
+
 export async function GET(req: Request) {
-  const q     = new URL(req.url).searchParams.get("q") ?? "rank32";
+  const q     = new URL(req.url).searchParams.get("q") ?? "all_confirmed";
   const token = await getToken();
   if (!token) return Response.json({ error: "토큰 발급 실패" });
 
-  // 거래대금상위 (ka10032) — 문서 확인된 엔드포인트
-  if (q === "rank32") {
-    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka10032", {
-      mrkt_tp: "001",       // 001=코스피, 101=코스닥, 000=전체
-      mang_stk_incls: "1", // 1=관리종목 포함
-      stex_tp: "3",         // 3=통합(KRX+NXT)
-    }));
+  if (q === "ka90009") {
+    return Response.json(await kPost(token, "ka90009", { ...base, trde_tp: "1", sort_tp: "1" }));
   }
 
-  // 등락률상위 (ka10027)
-  if (q === "rank27") {
-    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka10027", {
-      mrkt_tp: "001",
-      stex_tp: "3",
-      flu_tp: "1",          // 1=상위
-    }));
+  if (q === "ka10027") {
+    return Response.json(await kPost(token, "ka10027", { ...base, flu_tp: "1", sort_tp: "1", updown_incls: "1", pric_cnd: "0" }));
   }
 
-  // 거래량급증 (ka10023)
-  if (q === "rank23") {
-    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka10023", {
-      mrkt_tp: "001",
-      stex_tp: "3",
-    }));
-  }
-
-  // 외인연속순매매상위 (ka10035)
-  if (q === "rank35") {
-    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka10035", {
-      mrkt_tp: "001",
-      for_tp: "1",          // 1=연속매수
-      stex_tp: "3",
-    }));
-  }
-
-  // 외국인기관매매상위 (ka90009)
-  if (q === "rank90009") {
-    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka90009", {
-      mrkt_tp: "001",
-      stex_tp: "3",
-    }));
-  }
-
-  // stkinfo 확인
-  if (q === "stkinfo") {
-    return Response.json(await kPost(token, "/api/dostk/stkinfo", "ka10001", { stk_cd: "005930" }));
+  if (q === "all_confirmed") {
+    const trs = [
+      { id: "ka10032", body: { mrkt_tp: "001", mang_stk_incls: "1", stex_tp: "3" } },
+      { id: "ka10035", body: { ...base, trde_tp: "1", for_tp: "1", base_dt_tp: "1" } },
+      { id: "ka10023", body: { ...base, sort_tp: "1", tm_tp: "1", trde_qty_tp: "1", trde_tp: "1", unit_tp: "1", pric_tp: "0", sort_cnd: "1", sort_base: "1", updown_incls: "1", pric_cnd: "0", base_dt_tp: "1", trde_prica: "0", crd_tp: "0", trde_prica_tp: "1" } },
+      { id: "ka10098", body: { ...base, sort_tp: "1", sort_cnd: "1", sort_base: "1", updown_incls: "1", pric_cnd: "0", base_dt_tp: "1", trde_prica: "0", crd_tp: "0", trde_prica_tp: "1", trde_tp: "1", unit_tp: "1", pric_tp: "0", for_tp: "1", flu_tp: "1", tm_tp: "1" } },
+      { id: "ka90009", body: { ...base, trde_tp: "1", sort_tp: "1" } },
+      { id: "ka10027", body: { ...base, flu_tp: "1", sort_tp: "1", updown_incls: "1", pric_cnd: "0" } },
+    ];
+    const results = await Promise.all(trs.map(({ id, body }) => kPost(token, id, body)));
+    return Response.json(results.map((r) => ({
+      id: r.apiId, code: r.code, ok: r.code === 0,
+      msg: r.code !== 0 ? r.msg : "OK",
+      keys: r.arrayKeys, count: r.count, sampleKeys: r.sampleKeys,
+    })));
   }
 
   return Response.json({ token_ok: true });

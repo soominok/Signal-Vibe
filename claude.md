@@ -44,3 +44,36 @@ npm run dev         # 로컬 동작 확인
 - plan.md에 없는 기능을 "겸사겸사" 추가하지 않는다.
 - 한 번에 여러 단계를 동시에 진행하지 않는다.
 - 임의로 스택(라이브러리)을 바꾸지 않는다. 바꿔야 하면 먼저 제안·승인.
+
+## 개발 실수 기록 (Lessons Learned)
+> 실제 작업 중 발생한 문제와 해결책. 반복 방지용.
+
+### 환경 설정
+- **Node.js PATH 미반영**: winget으로 Node.js 설치 후 같은 PowerShell 세션에서 `npx` 인식 안 됨.
+  → 같은 세션에서 쓸 때는 `$env:PATH = "C:\Program Files\nodejs;" + $env:PATH` 먼저 실행.
+- **create-next-app이 비어 있지 않은 디렉터리 거부**: 기존 파일(info.txt, plan.md 등)이 있으면 실패.
+  → 임시 하위 디렉터리(`tmp-init`)에 생성 후 파일을 루트로 이동. 언더스코어 시작 이름(`_tmp`) 불가.
+- **create-next-app이 CLAUDE.md를 자동 생성**: `@AGENTS.md` 한 줄짜리 파일로 우리 CLAUDE.md를 덮어쓸 수 있음.
+  → 이동 시 CLAUDE.md를 건너뛰고 기존 파일 보존.
+
+### Git / 파일 관리
+- **`.env*` gitignore 패턴이 `.env.local.example`도 제외**: `.env.local.example`은 커밋해야 하는 템플릿.
+  → `.gitignore`에 `!.env.local.example` 예외 추가 필수.
+- **`next-env.d.ts`는 gitignore 대상**: Next.js 기본 `.gitignore`에 포함됨 — `git add` 시 명시적으로 넣지 말 것.
+
+### TypeScript / IDE
+- **IDE 진단이 파일 저장 직후 순간적으로 오래된 오류를 표시**: 실제 오류가 아닐 수 있음.
+  → IDE 메시지만 보지 말고 반드시 `npm run typecheck`로 확인.
+- **"use client" 경계**: HotSectorGrid처럼 onClick 함수 prop을 받는 컴포넌트는 클라이언트 컴포넌트 트리 안에 있어야 함. Server Component에서 함수 prop 직접 전달 불가.
+
+### 스크린샷 검증
+- **playwright는 프로젝트 devDependency로 유지하지 않음**: 스크린샷 목적으로만 임시 설치, 완료 후 `npm uninstall playwright` 및 임시 스크립트 삭제.
+  → 매번 `npm install --save-dev playwright`로 재설치하거나, 향후 전용 스크립트 파일로 관리.
+
+### Windows/PowerShell 특이사항
+- **Bash 도구에서 Windows 경로 사용 시 실패**: `c:\Users\...` 대신 PowerShell 도구 사용.
+- **절대경로에 공백 포함 시**: 반드시 큰따옴표로 감쌀 것 (`"C:\Program Files\..."`).
+
+### UI/컴포넌트 설계
+- **섹터 상세 패널(SectorDetailPanel)처럼 여러 상태를 가진 슬라이드오버**: 내부 뷰(sector → company)를 스택으로 관리할 것. 패널 하나에 모든 드릴다운을 구현하면 복잡도가 급증함.
+- **mock-data.ts가 300줄을 넘으면 도메인별로 분리**: `mock-sectors.ts`, `mock-stocks.ts`, `mock-market.ts` 등으로 나눌 것.
