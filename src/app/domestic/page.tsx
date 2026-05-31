@@ -1,90 +1,77 @@
-import { marketIndices } from "@/lib/mock-data";
+import { marketIndices, domesticTopStocks } from "@/lib/mock-data";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { StarButton } from "@/components/dashboard/WatchlistPanel";
-import { getStocksRankedByValue, parseKiwoomNumber, type KiwoomStockInfo } from "@/lib/api/kiwoom";
-import { domesticTopStocks } from "@/lib/mock-data";
+import {
+  getTradingValueRank,
+  parseKiwoomNumber,
+  cleanTicker,
+  type KiwoomRankItem,
+} from "@/lib/api/kiwoom";
 
-// 조회할 주요 종목 코드 목록 (거래대금 상위 예상 종목)
-const WATCH_TICKERS = [
-  "005930", // 삼성전자
-  "000660", // SK하이닉스
-  "012450", // 한화에어로스페이스
-  "035420", // NAVER
-  "373220", // LG에너지솔루션
-  "207940", // 삼성바이오로직스
-  "035720", // 카카오
-  "000720", // 현대건설
-  "042700", // 한미반도체
-  "247540", // 에코프로비엠
-  "068270", // 셀트리온
-  "005490", // POSCO홀딩스
-  "006400", // 삼성SDI
-  "051910", // LG화학
-  "000270", // 기아
-];
+export const revalidate = 60; // 1분 캐시
 
 const marketBreadth = { up: 521, flat: 89, down: 388, total: 998 };
 
-function StockTable({ stocks }: { stocks: KiwoomStockInfo[] }) {
+/** 거래대금 (백만원) → "1조 2,345억" 표기 */
+function formatTradingValue(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}조`;
+  if (v >= 10_000)    return `${Math.floor(v / 10_000).toLocaleString("ko-KR")}억`;
+  return `${v.toLocaleString("ko-KR")}백만`;
+}
+
+function LiveStockTable({ stocks }: { stocks: KiwoomRankItem[] }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
-            <th className="px-4 py-2.5 text-left font-medium text-muted-foreground w-8">#</th>
-            <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">종목</th>
-            <th className="px-4 py-2.5 text-right font-medium text-muted-foreground hidden sm:table-cell">현재가</th>
-            <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">등락률</th>
-            <th className="px-4 py-2.5 text-right font-medium text-muted-foreground hidden md:table-cell">거래량</th>
+            <th className="px-3 py-2.5 text-left font-medium text-muted-foreground w-8">#</th>
+            <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">종목</th>
+            <th className="px-3 py-2.5 text-right font-medium text-muted-foreground hidden sm:table-cell">현재가</th>
+            <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">등락률</th>
+            <th className="px-3 py-2.5 text-right font-medium text-muted-foreground hidden md:table-cell">거래대금</th>
+            <th className="px-3 py-2.5 text-right font-medium text-muted-foreground hidden lg:table-cell">전일순위</th>
           </tr>
         </thead>
         <tbody>
           {stocks.map((stock, i) => {
             const changePercent = parseKiwoomNumber(stock.flu_rt);
             const price         = parseKiwoomNumber(stock.cur_prc);
+            const trdeVal       = parseKiwoomNumber(stock.trde_prica);
             const isUp = changePercent > 0;
-
-            // mock-data에서 종목명으로 코멘트 찾기
-            const mockEntry = domesticTopStocks.find((m) => m.ticker === stock.stk_cd);
+            const ticker = cleanTicker(stock.stk_cd);
+            const rankDiff = parseInt(stock.pred_rank) - parseInt(stock.now_rank);
 
             return (
-              <>
-                <tr key={stock.stk_cd} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-                  <td className="px-4 py-3 text-muted-foreground tabular-nums">{i + 1}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <div>
-                        <p className="font-medium">{stock.stk_nm}</p>
-                        <p className="text-xs text-muted-foreground">{stock.stk_cd}</p>
-                      </div>
-                      <StarButton ticker={stock.stk_nm} />
+              <tr key={stock.stk_cd} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                <td className="px-3 py-3 text-muted-foreground tabular-nums font-medium">{stock.now_rank}</td>
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-1">
+                    <div>
+                      <p className="font-medium">{stock.stk_nm}</p>
+                      <p className="text-xs text-muted-foreground">{ticker}</p>
                     </div>
-                  </td>
-                  <td className="hidden px-4 py-3 text-right tabular-nums font-medium sm:table-cell">
-                    {price.toLocaleString("ko-KR")}
-                  </td>
-                  <td className={`px-4 py-3 text-right tabular-nums font-medium ${isUp ? "text-rose-500" : "text-blue-500"}`}>
-                    <span className="flex items-center justify-end gap-1">
-                      {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {isUp ? "+" : ""}{changePercent.toFixed(2)}%
-                    </span>
-                  </td>
-                  <td className="hidden px-4 py-3 text-right tabular-nums text-muted-foreground md:table-cell">
-                    {parseKiwoomNumber(stock.trde_qty).toLocaleString("ko-KR")}
-                  </td>
-                </tr>
-                {/* 코멘트 행 */}
-                {mockEntry && (
-                  <tr key={`${stock.stk_cd}-comment`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-                    <td />
-                    <td colSpan={4} className="px-4 pb-3 pt-0">
-                      <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-2">
-                        {mockEntry.comment}
-                      </p>
-                    </td>
-                  </tr>
-                )}
-              </>
+                    <StarButton ticker={stock.stk_nm} />
+                  </div>
+                </td>
+                <td className="hidden px-3 py-3 text-right tabular-nums font-medium sm:table-cell">
+                  {price.toLocaleString("ko-KR")}
+                </td>
+                <td className={`px-3 py-3 text-right tabular-nums font-medium ${isUp ? "text-rose-500" : changePercent < 0 ? "text-blue-500" : "text-muted-foreground"}`}>
+                  <span className="flex items-center justify-end gap-1">
+                    {isUp ? <TrendingUp className="h-3 w-3" /> : changePercent < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+                    {isUp ? "+" : ""}{changePercent.toFixed(2)}%
+                  </span>
+                </td>
+                <td className="hidden px-3 py-3 text-right tabular-nums text-muted-foreground md:table-cell">
+                  {formatTradingValue(trdeVal)}
+                </td>
+                <td className="hidden px-3 py-3 text-right lg:table-cell">
+                  <span className={`text-xs font-medium ${rankDiff > 0 ? "text-rose-500" : rankDiff < 0 ? "text-blue-500" : "text-muted-foreground"}`}>
+                    {rankDiff > 0 ? `▲${rankDiff}` : rankDiff < 0 ? `▼${Math.abs(rankDiff)}` : "—"}
+                  </span>
+                </td>
+              </tr>
             );
           })}
         </tbody>
@@ -103,7 +90,6 @@ function MockStockTable() {
             <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">종목</th>
             <th className="px-4 py-2.5 text-right font-medium text-muted-foreground hidden sm:table-cell">현재가</th>
             <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">등락률</th>
-            <th className="px-4 py-2.5 text-right font-medium text-muted-foreground hidden md:table-cell">거래대금</th>
           </tr>
         </thead>
         <tbody>
@@ -131,16 +117,10 @@ function MockStockTable() {
                       {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
                     </span>
                   </td>
-                  <td className="hidden px-4 py-3 text-right tabular-nums text-muted-foreground md:table-cell">
-                    {stock.tradingValue.toLocaleString("ko-KR")}억
-                  </td>
                 </tr>
                 <tr key={`${stock.ticker}-c`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-                  <td />
-                  <td colSpan={4} className="px-4 pb-3 pt-0">
-                    <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-2">
-                      {stock.comment}
-                    </p>
+                  <td /><td colSpan={3} className="px-4 pb-3 pt-0">
+                    <p className="text-xs text-muted-foreground border-l-2 border-border pl-2">{stock.comment}</p>
                   </td>
                 </tr>
               </>
@@ -152,14 +132,11 @@ function MockStockTable() {
   );
 }
 
-export const revalidate = 60; // 1분 캐시
-
 export default async function DomesticPage() {
-  const domestic = marketIndices.filter((i) => i.market === "domestic");
-
-  // Kiwoom 실데이터 시도 — 실패 시 mock 자동 fallback
-  const liveStocks = await getStocksRankedByValue(WATCH_TICKERS);
-  const isLive = liveStocks.length > 0;
+  const domestic    = marketIndices.filter((i) => i.market === "domestic");
+  const liveKospi   = await getTradingValueRank("001", 50);
+  const liveKosdaq  = await getTradingValueRank("101", 50);
+  const isLive      = liveKospi.length > 0;
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
@@ -200,22 +177,33 @@ export default async function DomesticPage() {
             </div>
             <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full">
               <div className="bg-rose-400" style={{ width: `${(marketBreadth.up / marketBreadth.total) * 100}%` }} />
-              <div className="bg-muted" style={{ width: `${(marketBreadth.flat / marketBreadth.total) * 100}%` }} />
+              <div className="bg-muted"    style={{ width: `${(marketBreadth.flat / marketBreadth.total) * 100}%` }} />
               <div className="bg-blue-400" style={{ width: `${(marketBreadth.down / marketBreadth.total) * 100}%` }} />
             </div>
           </div>
         </section>
 
-        {/* 거래대금 순위 */}
+        {/* 거래대금 순위 — 코스피 */}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-muted-foreground">거래대금 순위</h2>
+            <h2 className="text-sm font-medium text-muted-foreground">코스피 거래대금 순위</h2>
             <span className={`text-xs font-medium ${isLive ? "text-rose-500" : "text-muted-foreground"}`}>
-              {isLive ? "🔴 키움 실데이터" : "목업 데이터"}
+              {isLive ? "🔴 키움 실데이터 · 1분 갱신" : "목업 데이터"}
             </span>
           </div>
-          {isLive ? <StockTable stocks={liveStocks} /> : <MockStockTable />}
+          {isLive ? <LiveStockTable stocks={liveKospi} /> : <MockStockTable />}
         </section>
+
+        {/* 거래대금 순위 — 코스닥 */}
+        {isLive && liveKosdaq.length > 0 && (
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted-foreground">코스닥 거래대금 순위</h2>
+              <span className="text-xs text-rose-500 font-medium">🔴 키움 실데이터</span>
+            </div>
+            <LiveStockTable stocks={liveKosdaq} />
+          </section>
+        )}
       </div>
     </main>
   );

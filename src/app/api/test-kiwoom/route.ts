@@ -1,7 +1,10 @@
 /**
- * GET /api/test-kiwoom?q=stkinfo  — ka10001 실데이터 ✅
- * GET /api/test-kiwoom?q=curprc   — ka10007 현재가 ✅ (mrkcond 공유)
- * GET /api/test-kiwoom?q=findrank — 거래대금 순위 TR 탐색 (브루트포스)
+ * 키움 API 테스트 — 확인된 엔드포인트
+ * GET /api/test-kiwoom?q=rank32  — ka10032 거래대금상위 (rkinfo)
+ * GET /api/test-kiwoom?q=rank27  — ka10027 등락률상위
+ * GET /api/test-kiwoom?q=rank23  — ka10023 거래량급증
+ * GET /api/test-kiwoom?q=rank35  — ka10035 외인연속순매매상위
+ * GET /api/test-kiwoom?q=stkinfo — ka10001 주식기본정보 (확인됨)
  */
 
 const BASE       = "https://api.kiwoom.com";
@@ -29,53 +32,63 @@ async function kPost(token: string, endpoint: string, apiId: string, body: Recor
       "api-id": apiId,
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(8000),
   });
-  const text = await res.text();
-  let parsed: unknown;
-  try { parsed = JSON.parse(text); } catch { parsed = text; }
-  const ok = typeof parsed === "object" && parsed !== null && (parsed as Record<string,unknown>)["return_code"] === 0;
-  const msg = typeof parsed === "object" && parsed !== null ? (parsed as Record<string,unknown>)["return_msg"] : parsed;
-  return { endpoint, apiId, ok, msg, full: ok ? parsed : undefined };
+  const data = await res.json();
+  return { apiId, status: res.status, data };
 }
 
 export async function GET(req: Request) {
-  const q     = new URL(req.url).searchParams.get("q") ?? "stkinfo";
+  const q     = new URL(req.url).searchParams.get("q") ?? "rank32";
   const token = await getToken();
   if (!token) return Response.json({ error: "토큰 발급 실패" });
 
-  if (q === "stkinfo") {
-    // ✅ 확인된 TR — 주식기본정보 (현재가·등락률·거래량·재무지표 모두 포함)
-    const res = await fetch(BASE + "/api/dostk/stkinfo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json;charset=UTF-8", "authorization": `Bearer ${token}`, "cont-yn": "N", "next-key": "", "api-id": "ka10001" },
-      body: JSON.stringify({ stk_cd: "005930" }),
-    });
-    return Response.json(await res.json());
+  // 거래대금상위 (ka10032) — 문서 확인된 엔드포인트
+  if (q === "rank32") {
+    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka10032", {
+      mrkt_tp: "001",       // 001=코스피, 101=코스닥, 000=전체
+      mang_stk_incls: "1", // 1=관리종목 포함
+      stex_tp: "3",         // 3=통합(KRX+NXT)
+    }));
   }
 
-  if (q === "findrank") {
-    // 거래대금 순위 TR 탐색
-    // 패턴: 알려진 rank 경로에 ka10030~ka10100, ka10110~ka10180 범위 시도
-    const rankPaths = ["/api/dostk/volrank", "/api/dostk/trdrk", "/api/dostk/trdamt", "/api/dostk/trdvol", "/api/dostk/rank"];
-    const trCodes   = ["ka10030","ka10031","ka10059","ka10060","ka10086","ka10090","ka10091","ka10092","ka10093","ka10094","ka10095","ka10100","ka10110","ka10111","ka10115","ka10130","ka10171","ka10172"];
-    const rankBody  = { mrkt_tp: "0", stex_tp: "1" };
+  // 등락률상위 (ka10027)
+  if (q === "rank27") {
+    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka10027", {
+      mrkt_tp: "001",
+      stex_tp: "3",
+      flu_tp: "1",          // 1=상위
+    }));
+  }
 
-    // volrank 경로에 모든 TR 시도 (가장 그럴듯한 경로)
-    const byPath = await Promise.all(
-      trCodes.map((id) => kPost(token, "/api/dostk/volrank", id, rankBody))
-    );
-    const hits = byPath.filter((r) => r.ok);
-    if (hits.length > 0) return Response.json({ found: true, hits });
+  // 거래량급증 (ka10023)
+  if (q === "rank23") {
+    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka10023", {
+      mrkt_tp: "001",
+      stex_tp: "3",
+    }));
+  }
 
-    // 모든 경로 × 여러 TR 조합
-    const allResults = await Promise.all(
-      rankPaths.flatMap((ep) =>
-        ["ka10059","ka10086","ka10095","ka10171"].map((id) => kPost(token, ep, id, rankBody))
-      )
-    );
-    const allHits = allResults.filter((r) => r.ok);
-    return Response.json({ found: allHits.length > 0, hits: allHits, misses: allResults.filter((r) => !r.ok).map((r) => `${r.endpoint}/${r.apiId}: ${r.msg}`) });
+  // 외인연속순매매상위 (ka10035)
+  if (q === "rank35") {
+    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka10035", {
+      mrkt_tp: "001",
+      for_tp: "1",          // 1=연속매수
+      stex_tp: "3",
+    }));
+  }
+
+  // 외국인기관매매상위 (ka90009)
+  if (q === "rank90009") {
+    return Response.json(await kPost(token, "/api/dostk/rkinfo", "ka90009", {
+      mrkt_tp: "001",
+      stex_tp: "3",
+    }));
+  }
+
+  // stkinfo 확인
+  if (q === "stkinfo") {
+    return Response.json(await kPost(token, "/api/dostk/stkinfo", "ka10001", { stk_cd: "005930" }));
   }
 
   return Response.json({ token_ok: true });
